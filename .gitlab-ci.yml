@@ -1,0 +1,70 @@
+stages:
+  - dev-deploy
+  - prod-deploy
+variables:
+        DEV_SERVER:  '192.168.1.100'
+        PROD_SERVER: '192.168.1.200'
+        SDIR: 'default/'
+        DDIR: '/opt/assure1/var/checkouts/core/default/'
+        TDIR: '/opt/tmp'
+        SCRIPT_DIR: '/opt/scripts/'
+        PACKG_DIR:  '/opt/assure1/distrib/custompackages/' 
+        TOOLS_DIR:  '/opt/assure1/www/tools/event/' 
+        RSYNC_ARGS: '--omit-dir-times --verbose --recursive --links --times --compress'
+
+devDeploy:
+  stage: dev-deploy
+
+  script:
+    - echo "'$GITLAB_USER_NAME' '$GITLAB_USER_LOGIN' '$GITLAB_USER_ID'" 
+    - echo "'$DEV_SERVER' '$SDIR' '$DDIR' '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME' '$CI_PIPELINE_SOURCE'"
+
+    - echo "Deploying scripts to assure1 '$DEV_SERVER' server '$SCRIPT_DIR'"
+    - rsync $RSYNC_ARGS --delete scripts/  assure1@$DEV_SERVER:$SCRIPT_DIR
+
+    - echo "Deploying to assure1 dev testing dir '$TDIR'"
+    - rsync $RSYNC_ARGS default/collection/event/trap/ assure1@$DEV_SERVER:$TDIR
+    
+    - echo "Testing '$TDIR'"
+    - ssh assure1@$DEV_SERVER /opt/scripts/check-trap-rules $TDIR
+
+    - echo "testing to make sure the svn repo is clean"
+    - ssh assure1@$DEV_SERVER /opt/scripts/svn-commit-all -s  
+
+    - echo "Deploying to assure1 dev dir '$DDIR'"
+    - rsync $RSYNC_ARGS --exclude 'default/collection/event/trap/json/' $SDIR assure1@$DEV_SERVER:$DDIR
+
+    - echo "adding the rules to a1svn"
+    - ssh assure1@$DEV_SERVER "/opt/scripts/svn-commit-all -a"
+
+    - echo "committing the rules to a1svn with ssh assure1@$DEV_SERVER /opt/scripts/svn-commit-all '[$GITLAB_USER_LOGIN] $CI_COMMIT_SHORT_SHA $CI_COMMIT_MESSAGE'"
+    - ENCODED=$(printf '%s' "[$GITLAB_USER_LOGIN] $CI_COMMIT_SHORT_SHA $CI_COMMIT_MESSAGE" | base64 -w0)
+    - ssh assure1@$DEV_SERVER "/opt/scripts/svn-commit-all -e '$ENCODED'"
+  rules:
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == 'development' && $CI_PIPELINE_SOURCE == 'merge_request_event'
+
+prodDeploy:
+  stage: prod-deploy
+
+  script:
+    - echo "'$GITLAB_USER_NAME' '$GITLAB_USER_LOGIN' '$GITLAB_USER_ID'" 
+    - echo "'$PROD_SERVER' '$SDIR' '$DDIR' '$CI_COMMIT_BRANCH' '$CI_PIPELINE_SOURCE'"
+
+    - echo "Deploying scripts to assure1 '$PROD_SERVER' server '$SCRIPT_DIR'"
+    - rsync $RSYNC_ARGS --delete scripts/  assure1@$PROD_SERVER:$SCRIPT_DIR
+    
+    - echo "testing to make sure the svn repo is clean"
+    - ssh assure1@$PROD_SERVER /opt/scripts/svn-commit-all -s  
+
+    - echo "Deploying to assure1 prod dir '$DDIR'"
+    - rsync $RSYNC_ARGS --exclude 'default/collection/event/trap/json/' $SDIR assure1@$PROD_SERVER:$DDIR
+
+    - echo "adding the rules to a1svn "
+    - ssh assure1@$PROD_SERVER "/opt/scripts/svn-commit-all -a"
+
+    - echo "committing the rules to a1svn with ssh assure1@$PROD_SERVER /opt/scripts/svn-commit-all  '[$GITLAB_USER_LOGIN] $CI_COMMIT_SHORT_SHA $CI_COMMIT_MESSAGE'"
+    - ENCODED=$(printf '%s' "[$GITLAB_USER_LOGIN] $CI_COMMIT_SHORT_SHA $CI_COMMIT_MESSAGE" | base64 -w0)
+    - ssh assure1@$PROD_SERVER "/opt/scripts/svn-commit-all -e '$ENCODED'"
+
+  rules:
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == 'main' && $CI_PIPELINE_SOURCE == 'merge_request_event'  && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == 'development'

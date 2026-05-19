@@ -1,0 +1,89 @@
+#!/bin/bash
+
+A1SVN="/opt/assure1/vendor/svn/bin/svn --config-dir /opt/assure1/etc/svn --non-interactive --trust-server-cert"
+DIR="/opt/assure1/var/checkouts/core"
+MESSAGE=""
+Help()
+{
+   # Display Help
+   echo "Options"
+   echo
+   echo "Syntax: scriptTemplate [-s|h|a|c <message>|e <encoded_message>]"
+   echo "options:"
+   echo "s     a1svn status"
+   echo "h     Print this Help."
+   echo "a     a1svn add all"
+   echo "c <message>    a1svn commit"
+   echo "e <encoded>    a1svn commit with base64 encoded message"
+   echo
+}
+Status()
+{
+   # status
+   # Need to add results to indicate if there are files not checked in.
+   # we will run this before copying files to the server so we do not 
+   # clobber any uncommited changes 
+   RESULT=$($A1SVN status $DIR)
+   if [[ $RESULT ]] ;
+   then	   
+      echo "a1svn status is not clean"	   
+      echo "not sure how to clean this up"	   
+      echo "$RESULT"   
+      exit 1 
+   fi
+   EXIT=$?
+   echo "$RESULT"   
+}
+AddAll()
+{
+   # add all, this is close
+   echo "adding all the modified files"   
+   cd $DIR
+   RESULT=$($A1SVN status |  grep ^? | sed 's/^? \+//'|while read line; do $A1SVN add $line; done)
+   EXIT=$?
+   echo "$EXIT"   
+   echo "$RESULT"   
+}
+Commit()
+{
+   # commit
+   # message will be the short commit hash from the hash that triggered the pipeline
+   # maybe send some of these gitlab var values.
+   # CI_COMMIT_AUTHOR CI_COMMIT_SHORT_SHA CI_COMMIT_MESSAGE
+   echo "commiting the added files"   
+   MESSAGE=$1
+   cd $DIR
+   RESULT=$($A1SVN commit -m "$MESSAGE")
+   EXIT=$?
+   echo "$RESULT $MESSAGE"   
+}
+while getopts ":hsac:e:" option; do
+   case $option in
+      h) # display Help
+         Help
+         exit;;
+      s) # a1svn status
+         Status
+         exit;;
+      a) # a1svn add all
+         AddAll
+         exit;;
+      c) # a1svn commit 
+         MESSAGE="$OPTARG"
+         echo "$MESSAGE"
+         Commit "$MESSAGE"
+         exit;;
+      e) # a1svn commit with base64 encoded message
+         MESSAGE=$(printf '%s' "$OPTARG" | base64 -d)
+         echo "$MESSAGE"
+         Commit "$MESSAGE"
+         exit;;	 
+     \?) # Invalid option
+         echo "Error: Invalid option"
+         exit;;
+   esac
+done
+
+
+
+#$A1SVN status |  grep ^M | sed 's/^M \+//'

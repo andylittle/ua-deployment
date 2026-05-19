@@ -1,0 +1,25 @@
+
+#!/bin/bash
+
+
+PATH="/opt/assure1/var/checkouts/core/default/collection/event/trap"
+
+#for i in /opt/scripts/temp/* ; do result=$(/opt/assure1/bin/CheckSyntax $i | grep  "syntax error")  ;  EXIT=$?  ;if [ "$EXIT" -eq 0 ] ; then echo $result ; exit 1; break  ; fi ; done
+
+
+/usr/bin/find $PATH -not -path "$PATH/_vendor/*"  -type f -name "*rules" |  
+    while read filename; 
+    do 
+        result=$(/opt/assure1/bin/CheckSyntax $filename | 
+        /usr/bin/grep  "syntax error");  
+        EXIT=$?;
+        /usr/bin/echo "$filename $result $EXIT"   
+        if [ "$EXIT" -eq 0 ] ; 
+        then 
+            /usr/bin/echo "$filename $result"; 
+            exit 1; 
+            break; 
+        fi;
+    done
+
+
