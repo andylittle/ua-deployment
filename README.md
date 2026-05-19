@@ -9,6 +9,22 @@ This repo manages two things:
 1. **Assure1 content** — anything under a1svn control (the `default/` directory) that gets rsynced to the server and committed into Assure1's internal SVN (`a1svn`). SNMP trap rules are one example of content managed this way.
 2. **Deployment scripts** — helper scripts (under `scripts/`) that are synced to the target server and invoked during the pipeline.
 
+## Prerequisites
+
+### GitLab Runner
+
+A GitLab Runner must be registered and available to execute pipeline jobs. The runner needs `rsync` and `ssh` available in its environment.
+
+### SSH Keys
+
+The pipeline connects to the Assure1 servers over SSH as the `assure1` user. For this to work without a password prompt:
+
+1. Generate an SSH key pair for the runner.
+2. Add the public key to `~/.ssh/authorized_keys` on both the dev and prod servers for the `assure1` user.
+3. Store the private key as a CI/CD variable (e.g. `SSH_PRIVATE_KEY`) in GitLab and configure the pipeline to load it into the runner's SSH agent before jobs run.
+
+See the [GitLab SSH keys in CI/CD jobs documentation](https://docs.gitlab.com/ci/jobs/ssh_keys/) for the recommended setup.
+
 ## Pipeline Stages
 
 ### `devDeploy`
