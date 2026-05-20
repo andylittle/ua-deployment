@@ -64,7 +64,7 @@ Wraps a1svn operations against the Assure1 checkout directory (`/opt/assure1/var
 
 | Flag | Description |
 |------|-------------|
-| `-s` | Show a1svn status. Exits non-zero if the working copy is dirty. |
+| `-s` | Show a1svn status. Exits non-zero if the working copy is dirty — it does not attempt any cleanup, it just gives up. The pipeline runs this before rsyncing files so it won't clobber uncommitted changes on the server. |
 | `-a` | Add all untracked files (`svn add`). |
 | `-c <message>` | Commit with a plaintext message. |
 | `-e <encoded>` | Commit with a base64-encoded message (used by the pipeline to safely pass the GitLab commit message over SSH). |
